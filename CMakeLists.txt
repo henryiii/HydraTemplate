@@ -18,7 +18,11 @@ set(HYDRA_ROOT "../Hydra")
 find_package(Hydra REQUIRED)
 
 # Do a little setup
-HydraFind()
+HydraSetup()
+
+
+# Optional find (If using FindROOT.cmake in the Hydra cmake, this must be after HydraSetup)
+find_package(ROOT)
 
 # Organization: see src/CMakeLists.txt
 add_subdirectory(src)

@@ -8,7 +8,12 @@
 # HYDRA_THRUST_DIR       - where to find the variadic thrust
 # HYDRA_FOUND            - True if HYDRA is found
 # HYDRA_CXX_FLAGS        - Flags for building on your current system
-# HydraAddExecutable     - Macro to build Hydra packages
+# HydraSetup             - Macro to find packages and prepare Hydra
+# HydraAddExecutable     - Macro to build Hydra packges
+#
+# HydraAddExecutable(MyProg prog.cpp) will add a MyProg master target and
+# that will be inherited by the sub-targets for each platform. Use add on this target
+# to control all three
 
 if (HYDRA_INCLUDE_DIR)
     # already in cache, be silent
@@ -68,8 +73,8 @@ else()
     set(HYDRA_CXX_FLAGS "${HYDRA_GENERAL_FLAGS} -O3")
 endif()
 
-macro(HydraFind)
-    message(STATUS "HydraFind")
+macro(HydraSetup)
+    message(STATUS "HydraSetup: Module directory add and find platforms")
     if(HYDRA_CMAKE_MODULE_DIR)
         list (FIND ${CMAKE_MODULE_PATH} ${HYDRA_CMAKE_MODULE_DIR} _index)
         if (${_index} EQUAL -1)
@@ -80,7 +85,7 @@ macro(HydraFind)
     find_package(CUDA 8.0)
     find_package(TBB)
     find_package(OpenMP)
-endmacro(HydraFind)
+endmacro(HydraSetup)
 
 
 if(CUDA_FOUND)
@@ -112,38 +117,42 @@ macro(HydraAddCuda NAMEEXE SOURCES)
     cuda_add_executable(${NAMEEXE}
         ${SOURCES}
         OPTIONS ${HYDRA_CUDA_OPTIONS} )
-    target_link_libraries(${NAMEEXE} rt)
-    target_include_directories(${NAMEEXE} PUBLIC ${HYDRA_INCLUDE_DIR})
+    target_link_libraries(${NAMEEXE} PUBLIC rt)
 endmacro()
 
 macro(HydraAddOMP NAMEEXE SOURCES)
     add_executable({NAMEEXE} ${SOURCES})
     set_target_properties(${NAMEEXE} PROPERTIES 
         COMPILE_FLAGS "-DTHRUST_HOST_SYSTEM=THRUST_HOST_SYSTEM_OMP -DTHRUST_DEVICE_SYSTEM=THRUST_DEVICE_SYSTEM_OMP ${OpenMP_CXX_FLAGS} ${HYDRA_CXX_FLAGS}")
-    target_link_libraries(${NAMEEXE} ${TBB_LIBRARIES})
-    target_include_directories(${NAMEEXE} PUBLIC ${HYDRA_INCLUDE_DIR})
 endmacro()
 
 macro(HydraAddTBB NAMEEXE SOURCES)
     add_executable(${NAMEEXE} ${SOURCES})
     set_target_properties(${NAMEEXE} PROPERTIES 
         COMPILE_FLAGS "-DTHRUST_HOST_SYSTEM=THRUST_HOST_SYSTEM_TBB -DTHRUST_DEVICE_SYSTEM=THRUST_DEVICE_SYSTEM_TBB  ${TBB_DEFINITIONS} ${HYDRA_CXX_FLAGS}")
-    target_link_libraries(${NAMEEXE} ${TBB_LIBRARIES})
-    target_include_directories(${NAMEEXE} PUBLIC ${TBB_INCLUDE_DIRS} ${HYDRA_INCLUDE_DIR})
+    target_link_libraries(${NAMEEXE} PUBLIC ${TBB_LIBRARIES})
+    target_include_directories(${NAMEEXE} PUBLIC ${TBB_INCLUDE_DIRS})
 endmacro()
 
 macro(HydraAddExecutable NAMEEXE SOURCES)
+    add_library(${NAMEEXE} INTERFACE)
+    target_include_directories(${NAMEEXE} INTERFACE ${HYDRA_INCLUDE_DIR})
+    # Use this target to add something to all three!
+
     if(CUDA_FOUND)
         message(STATUS "Making CUDA target: ${NAMEEXE}_cuda")
         HydraAddCuda(${NAMEEXE}_cuda ${SOURCES})
+        target_link_libraries(${NAMEEXE}_cuda PUBLIC ${NAMEEXE})
     endif()
     if(OMP_FOUND)
         message(STATUS "Making OpenMP target: ${NAMEEXE}_omp")
         HydraAddOMP(${NAMEEXE}_omp ${SOURCES})
+        target_link_libraries(${NAMEEXE}_omp PUBLIC ${NAMEEXE})
     endif()
     if(TBB_FOUND)
         message(STATUS "Making TBB target: ${NAMEEXE}_tbb")
         HydraAddTBB(${NAMEEXE}_tbb ${SOURCES})
+        target_link_libraries(${NAMEEXE}_tbb PUBLIC ${NAMEEXE})
     endif()
 endmacro(HydraAddExecutable)
 
