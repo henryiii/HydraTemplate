@@ -1,15 +1,26 @@
 cmake_minimum_required(VERSION 3.3)
+# Cmake is easy to build and install (you can use an older version to make it)
+# and is very backward compatible - setting the min version actually causes
+# Cmake to emulate the older version
 
-# project name
-project(HydraTemplate)
+# Project name and type (c++)
+project(HydraTemplate CXX)
 
-SET(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
+# Output the programs in build dir instead of in src/
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+
+# Include our FindHYDRA module
+set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
+
+# This assumes this folder is next to the Hydra folder
 set(HYDRA_ROOT "../Hydra")
 
 find_package(Hydra REQUIRED)
 
+# Do a little setup
 HydraFind()
 
-HydraAddExecutable(PhSp src/PhSp.cpp)
+# Organization: see src/CMakeLists.txt
+add_subdirectory(src)
 
 

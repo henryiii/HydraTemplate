@@ -82,56 +82,69 @@ macro(HydraFind)
     find_package(OpenMP)
 endmacro(HydraFind)
 
-macro(HydraAddExecutable NAMEEXE SOURCES)
+
+if(CUDA_FOUND)
+    set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} -std=c++11;
+        -I${HYDRA_INCLUDE_DIR} --cudart; static; -O4;
+        --expt-relaxed-constexpr; -ftemplate-backtrace-limit=0;
+        --expt-extended-lambda;--relocatable-device-code=false;
+        --generate-line-info; -Xptxas -fmad=true ;-Xptxas -dlcm=cg;
+        -Xptxas --opt-level=4 )
+
+    set(CUDA_SEPARABLE_COMPILATION OFF)
+    set(CUDA_VERBOSE_BUILD ON)
     
+    include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/FindCudaArch.cmake)
+
+    select_nvcc_arch_flags(NVCC_FLAGS_EXTRA)
+
+    list(APPEND CUDA_NVCC_FLAGS ${NVCC_FLAGS_EXTRA})
+
+    #hack for gcc 5.x.x
+    if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER 4.9)
+        list(APPEND CUDA_NVCC_FLAGS " -D_MWAITXINTRIN_H_INCLUDED ")
+    endif()
+
+    set(HYDRA_CUDA_OPTIONS -x cu -Xcompiler ${OpenMP_CXX_FLAGS} -DTHRUST_DEVICE_SYSTEM=THRUST_DEVICE_SYSTEM_CUDA  -DTHRUST_HOST_SYSTEM=THRUST_HOST_SYSTEM_OMP -lgomp)
+endif()
+
+macro(HydraAddCuda NAMEEXE SOURCES)
+    cuda_add_executable(${NAMEEXE}
+        ${SOURCES}
+        OPTIONS ${HYDRA_CUDA_OPTIONS} )
+    target_link_libraries(${NAMEEXE} rt)
+    target_include_directories(${NAMEEXE} PUBLIC ${HYDRA_INCLUDE_DIR})
+endmacro()
+
+macro(HydraAddOMP NAMEEXE SOURCES)
+    add_executable({NAMEEXE} ${SOURCES})
+    set_target_properties(${NAMEEXE} PROPERTIES 
+        COMPILE_FLAGS "-DTHRUST_HOST_SYSTEM=THRUST_HOST_SYSTEM_OMP -DTHRUST_DEVICE_SYSTEM=THRUST_DEVICE_SYSTEM_OMP ${OpenMP_CXX_FLAGS} ${HYDRA_CXX_FLAGS}")
+    target_link_libraries(${NAMEEXE} ${TBB_LIBRARIES})
+    target_include_directories(${NAMEEXE} PUBLIC ${HYDRA_INCLUDE_DIR})
+endmacro()
+
+macro(HydraAddTBB NAMEEXE SOURCES)
+    add_executable(${NAMEEXE} ${SOURCES})
+    set_target_properties(${NAMEEXE} PROPERTIES 
+        COMPILE_FLAGS "-DTHRUST_HOST_SYSTEM=THRUST_HOST_SYSTEM_TBB -DTHRUST_DEVICE_SYSTEM=THRUST_DEVICE_SYSTEM_TBB  ${TBB_DEFINITIONS} ${HYDRA_CXX_FLAGS}")
+    target_link_libraries(${NAMEEXE} ${TBB_LIBRARIES})
+    target_include_directories(${NAMEEXE} PUBLIC ${TBB_INCLUDE_DIRS} ${HYDRA_INCLUDE_DIR})
+endmacro()
+
+macro(HydraAddExecutable NAMEEXE SOURCES)
     if(CUDA_FOUND)
         message(STATUS "Making CUDA target: ${NAMEEXE}_cuda")
-        set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} -std=c++11;
-            -I${HYDRA_INCLUDE_DIR} --cudart; static; -O4;
-            --expt-relaxed-constexpr; -ftemplate-backtrace-limit=0;
-            --expt-extended-lambda;--relocatable-device-code=false;
-            --generate-line-info; -Xptxas -fmad=true ;-Xptxas -dlcm=cg;
-            -Xptxas --opt-level=4 )
-
-        set(CUDA_SEPARABLE_COMPILATION OFF)
-        set(CUDA_VERBOSE_BUILD ON)
-        
-        include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/FindCudaArch.cmake)
-
-        select_nvcc_arch_flags(NVCC_FLAGS_EXTRA)
-
-        list(APPEND CUDA_NVCC_FLAGS ${NVCC_FLAGS_EXTRA})
-
-        #hack for gcc 5.x.x
-        if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER 4.9)
-            list(APPEND CUDA_NVCC_FLAGS " -D_MWAITXINTRIN_H_INCLUDED ")
-        endif()
-
-        cuda_add_executable("${NAMEEXE}_cuda"
-            ${SOURCES}
-            OPTIONS -x cu -Xcompiler ${OpenMP_CXX_FLAGS} -DTHRUST_DEVICE_SYSTEM=THRUST_DEVICE_SYSTEM_CUDA  -DTHRUST_HOST_SYSTEM=THRUST_HOST_SYSTEM_OMP -lgomp
-        )
-        
-        target_link_libraries("${NAMEEXE}_cuda" rt)
-        target_include_directories("${NAMEEXE}_cuda" PUBLIC ${HYDRA_INCLUDE_DIR})
+        HydraAddCuda(${NAMEEXE}_cuda ${SOURCES})
     endif()
-
     if(OMP_FOUND)
-        add_executable("${NAMEEXE}_omp" ${SOURCES})
-        set_target_properties("${NAMEEXE}_omp" PROPERTIES 
-            COMPILE_FLAGS "-DTHRUST_HOST_SYSTEM=THRUST_HOST_SYSTEM_OMP -DTHRUST_DEVICE_SYSTEM=THRUST_DEVICE_SYSTEM_OMP ${OpenMP_CXX_FLAGS} ${HYDRA_CXX_FLAGS}")
-        target_link_libraries("${NAMEEXE}_omp" ${TBB_LIBRARIES})
-        target_include_directories("${NAMEEXE}_omp" PUBLIC ${HYDRA_INCLUDE_DIR})
+        message(STATUS "Making OpenMP target: ${NAMEEXE}_omp")
+        HydraAddOMP(${NAMEEXE}_omp ${SOURCES})
     endif()
-
     if(TBB_FOUND)
-        add_executable("${NAMEEXE}_tbb" src/PhSp.cpp)
-        set_target_properties("${NAMEEXE}_tbb" PROPERTIES 
-            COMPILE_FLAGS "-DTHRUST_HOST_SYSTEM=THRUST_HOST_SYSTEM_TBB -DTHRUST_DEVICE_SYSTEM=THRUST_DEVICE_SYSTEM_TBB  ${TBB_DEFINITIONS} ${HYDRA_CXX_FLAGS}")
-        target_link_libraries("${NAMEEXE}_tbb" ${TBB_LIBRARIES})
-        target_include_directories("${NAMEEXE}_tbb" PUBLIC ${TBB_INCLUDE_DIRS} ${HYDRA_INCLUDE_DIR})
+        message(STATUS "Making TBB target: ${NAMEEXE}_tbb")
+        HydraAddTBB(${NAMEEXE}_tbb ${SOURCES})
     endif()
-
 endmacro(HydraAddExecutable)
 
 if(HYDRA_FOUND)
