@@ -1,2 +1,2 @@
 
-HydraAddExecutable(PhSp PhSp.cpp)
+HydraAddExecutable(Empty Empty.cpp)
