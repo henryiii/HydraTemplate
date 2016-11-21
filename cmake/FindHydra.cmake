@@ -121,9 +121,11 @@ macro(HydraAddCuda NAMEEXE SOURCES)
 endmacro()
 
 macro(HydraAddOMP NAMEEXE SOURCES)
-    add_executable({NAMEEXE} ${SOURCES})
+    add_executable(${NAMEEXE} ${SOURCES})
     set_target_properties(${NAMEEXE} PROPERTIES 
         COMPILE_FLAGS "-DTHRUST_HOST_SYSTEM=THRUST_HOST_SYSTEM_OMP -DTHRUST_DEVICE_SYSTEM=THRUST_DEVICE_SYSTEM_OMP ${OpenMP_CXX_FLAGS} ${HYDRA_CXX_FLAGS}")
+    set_target_properties(${NAMEEXE} PROPERTIES 
+        LINK_FLAGS "${OpenMP_CXX_FLAGS}")
 endmacro()
 
 macro(HydraAddTBB NAMEEXE SOURCES)
@@ -144,7 +146,7 @@ macro(HydraAddExecutable NAMEEXE SOURCES)
         HydraAddCuda(${NAMEEXE}_cuda ${SOURCES})
         target_link_libraries(${NAMEEXE}_cuda PUBLIC ${NAMEEXE})
     endif()
-    if(OMP_FOUND)
+    if(OPENMP_FOUND)
         message(STATUS "Making OpenMP target: ${NAMEEXE}_omp")
         HydraAddOMP(${NAMEEXE}_omp ${SOURCES})
         target_link_libraries(${NAMEEXE}_omp PUBLIC ${NAMEEXE})
