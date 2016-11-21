@@ -117,7 +117,7 @@ macro(HydraAddCuda NAMEEXE SOURCES)
     cuda_add_executable(${NAMEEXE}
         ${SOURCES}
         OPTIONS ${HYDRA_CUDA_OPTIONS} )
-    target_link_libraries(${NAMEEXE} PUBLIC rt)
+    target_link_libraries(${NAMEEXE} PUBLIC ${CUDA_LIBRARIES})
 endmacro()
 
 macro(HydraAddOMP NAMEEXE SOURCES)
