@@ -136,6 +136,12 @@ macro(HydraAddTBB NAMEEXE SOURCES)
     target_include_directories(${NAMEEXE} PUBLIC ${TBB_INCLUDE_DIRS})
 endmacro()
 
+macro(HydraAddCPP NAMEEXE SOURCES)
+    add_executable(${NAMEEXE} ${SOURCES})
+    set_target_properties(${NAMEEXE} PROPERTIES 
+        COMPILE_FLAGS "-DTHRUST_HOST_SYSTEM=THRUST_HOST_SYSTEM_CPP -DTHRUST_DEVICE_SYSTEM=THRUST_DEVICE_SYSTEM_CPP ${HYDRA_CXX_FLAGS}")
+endmacro()
+
 macro(HydraAddExecutable NAMEEXE SOURCES)
     add_library(${NAMEEXE} INTERFACE)
     target_include_directories(${NAMEEXE} INTERFACE ${HYDRA_INCLUDE_DIR})
@@ -156,6 +162,8 @@ macro(HydraAddExecutable NAMEEXE SOURCES)
         HydraAddTBB(${NAMEEXE}_tbb ${SOURCES})
         target_link_libraries(${NAMEEXE}_tbb PUBLIC ${NAMEEXE})
     endif()
+    HydraAddCPP(${NAMEEXE}_cpp ${SOURCES})
+    target_link_libraries(${NAMEEXE}_cpp PUBLIC ${NAMEEXE})
 endmacro(HydraAddExecutable)
 
 if(HYDRA_FOUND)
