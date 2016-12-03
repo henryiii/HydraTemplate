@@ -1,7 +1,9 @@
-cmake_minimum_required(VERSION 3.3)
+cmake_minimum_required(VERSION 3.4.3)
 # Cmake is easy to build and install (you can use an older version to make it)
 # and is very backward compatible - setting the min version actually causes
 # Cmake to emulate the older version
+#
+# This minimum version of cmake is the one required by modern ROOT.
 
 # Project name and type (c++)
 project(HydraTemplate CXX)
